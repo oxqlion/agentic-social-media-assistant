@@ -24,7 +24,13 @@ enum CoreMLModelLoader {
         }
 
         let configuration = MLModelConfiguration()
-        configuration.computeUnits = .all
+        // Not `.all`: on the iOS Simulator, the GPU compute path for these
+        // fp16 ml-program models silently returns an all-zero output
+        // (verified empirically — CPU and CPU+Neural Engine both compute
+        // correctly, GPU alone does not). `.cpuAndNeuralEngine` still gets
+        // Neural Engine acceleration on real devices and is unaffected by
+        // this Simulator-only GPU bug.
+        configuration.computeUnits = .cpuAndNeuralEngine
 
         let model = try await MLPerfLog.measure("model.load") {
             try await MLModel.load(contentsOf: url, configuration: configuration)
