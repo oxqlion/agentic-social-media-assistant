@@ -2,8 +2,9 @@
 //  AgentProgressView.swift
 //  app-v1
 //
-//  Screen 3: a purely cosmetic "agents at work" screen. No real agent
-//  logic runs here yet — steps advance on a timer for demo purposes.
+//  Screen 3: runs the real on-device pipeline —
+//  index selected photos (Florence caption + CLIP embed) -> refine the
+//  query -> retrieve top-K matches — then hands off to ResultView.
 //
 
 import SwiftUI
@@ -15,13 +16,13 @@ private struct AgentStep: Identifiable {
 }
 
 struct AgentProgressView: View {
+    let model: AgentFlowModel
     @Binding var path: [FlowStep]
 
     private let steps: [AgentStep] = [
-        AgentStep(title: "Analyzing your photos", systemImage: "photo.badge.checkmark"),
-        AgentStep(title: "Writing your caption", systemImage: "text.quote"),
-        AgentStep(title: "Finding trending hashtags", systemImage: "number"),
-        AgentStep(title: "Matching the perfect track", systemImage: "music.note")
+        AgentStep(title: "Indexing your photos", systemImage: "photo.badge.checkmark"),
+        AgentStep(title: "Understanding your search", systemImage: "text.quote"),
+        AgentStep(title: "Matching photos", systemImage: "photo.stack")
     ]
 
     @State private var completedCount = 0
@@ -73,22 +74,35 @@ struct AgentProgressView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .task {
-            await runSimulatedProgress()
+            await runPipeline()
         }
     }
 
-    private func runSimulatedProgress() async {
-        for _ in steps {
-            try? await Task.sleep(for: .seconds(0.9))
-            completedCount += 1
+    private func runPipeline() async {
+        do {
+            let indexed = try await ImageIndexer().index(model.selectedImages) { _ in }
+            model.generatedCaption = indexed
+                .compactMap(\.caption)
+                .joined(separator: " ")
+            completedCount = 1
+
+            let result = try await RetrievalAgent().run(query: model.prompt, topK: 20)
+            model.refinedQuery = result.refinedQuery
+            completedCount = 2
+
+            model.retrievalResults = result.images
+            completedCount = 3
+        } catch {
+            model.retrievalError = String(describing: error)
         }
-        try? await Task.sleep(for: .seconds(0.4))
+
+        try? await Task.sleep(for: .seconds(0.3))
         path.append(.result)
     }
 }
 
 #Preview {
     NavigationStack {
-        AgentProgressView(path: .constant([]))
+        AgentProgressView(model: AgentFlowModel(), path: .constant([]))
     }
 }

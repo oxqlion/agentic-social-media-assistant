@@ -19,7 +19,7 @@ struct ContentView: View {
                     case .imageSelector:
                         ImageSelectorView(model: model, path: $path)
                     case .progress:
-                        AgentProgressView(path: $path)
+                        AgentProgressView(model: model, path: $path)
                     case .result:
                         ResultView(model: model, path: $path)
                     }
