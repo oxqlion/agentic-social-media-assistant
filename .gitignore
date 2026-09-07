@@ -1,0 +1,54 @@
+## macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+## Xcode / iOS (app-v1/)
+build/
+DerivedData/
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/project.xcworkspace/
+!*.xcodeproj/xcshareddata/
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+!*.xcworkspace/xcshareddata/
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+.swiftpm/
+Package.resolved
+*.xcuserstate
+
+## Python / ML experiments (trial_models/)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+## Downloaded / trained model weights (regenerate or fetch separately — too large for git)
+*.pt
+*.pth
+*.safetensors
+*.bin
+*.onnx
+*.mlmodel
+*.mlmodelc
+*.mlpackage
+*.gguf
+checkpoints/
+models/
+
+## Editor / IDE
+.vscode/
+.idea/
