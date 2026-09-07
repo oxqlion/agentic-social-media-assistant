@@ -20,12 +20,21 @@ struct ImageRetriever {
     }
 
     /// `ImageRetriever.search(query: "pictures of beaches and dogs", topK: 20)`
-    func search(query: String, topK: Int) async throws -> [ScoredImage] {
+    ///
+    /// Pass `candidates` to rank a specific set of images (e.g. only the
+    /// photos just indexed in the current flow) instead of the entire
+    /// persistent index, which accumulates across every past session.
+    func search(query: String, topK: Int, in candidates: [IndexedImage]? = nil) async throws -> [ScoredImage] {
         let queryEmbedding = try await MLPerfLog.measure("retrieval.textEmbed") {
             try await textEmbedding.encodeText(query)
         }
 
-        let images = try await store.allImages()
+        let images: [IndexedImage]
+        if let candidates {
+            images = candidates
+        } else {
+            images = try await store.allImages()
+        }
         guard !images.isEmpty else { return [] }
 
         let ranked = MLPerfLog.measure("retrieval.rank") {

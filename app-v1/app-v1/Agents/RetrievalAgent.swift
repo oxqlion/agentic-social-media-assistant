@@ -24,11 +24,14 @@ struct RetrievalAgent {
         let images: [ScoredImage]
     }
 
-    func run(query: String, topK: Int) async throws -> Result {
+    /// Pass `candidates` to restrict retrieval to a specific set of images
+    /// (e.g. only the photos just indexed in the current flow) instead of
+    /// the entire persistent index.
+    func run(query: String, topK: Int, candidates: [IndexedImage]? = nil) async throws -> Result {
         let refinedQuery = await MLPerfLog.measure("agent.query.refine") {
             await refiner.refine(query)
         }
-        let images = try await retriever.search(query: refinedQuery, topK: topK)
+        let images = try await retriever.search(query: refinedQuery, topK: topK, in: candidates)
         return Result(refinedQuery: refinedQuery, images: images)
     }
 }

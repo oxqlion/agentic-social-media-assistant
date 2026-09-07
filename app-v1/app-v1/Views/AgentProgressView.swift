@@ -86,7 +86,10 @@ struct AgentProgressView: View {
                 .joined(separator: " ")
             completedCount = 1
 
-            let result = try await RetrievalAgent().run(query: model.prompt, topK: 20)
+            // Scoped to this flow's photos, not the whole persistent index
+            // (which accumulates across sessions) — otherwise matches would
+            // include photos from previous posts.
+            let result = try await RetrievalAgent().run(query: model.prompt, topK: 20, candidates: indexed)
             model.refinedQuery = result.refinedQuery
             completedCount = 2
 
