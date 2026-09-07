@@ -5,6 +5,7 @@ description = "CLIP model benchmarking for iOS image retrieval"
 requires-python = ">=3.12"
 dependencies = [
     "accelerate>=1.14.0",
+    "coremltools>=9.0",
     "einops>=0.8.0",
     "ipykernel>=7.3.0",
     "jupyter>=1.1.1",
