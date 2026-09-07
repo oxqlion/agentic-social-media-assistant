@@ -80,7 +80,10 @@ struct AgentProgressView: View {
 
     private func runPipeline() async {
         do {
-            try await ImageIndexer().index(model.selectedImages) { _ in }
+            let indexed = try await ImageIndexer().index(model.selectedImages) { _ in }
+            model.generatedCaption = indexed
+                .compactMap(\.caption)
+                .joined(separator: " ")
             completedCount = 1
 
             let result = try await RetrievalAgent().run(query: model.prompt, topK: 20)

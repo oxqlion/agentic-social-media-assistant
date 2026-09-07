@@ -78,9 +78,15 @@ struct ResultView: View {
                 }
 
                 sectionCard(title: "Caption", systemImage: "text.quote") {
-                    Text("Placeholder caption text goes here. The real AI-generated caption will appear in this spot.")
-                        .font(.body)
-                        .foregroundStyle(.primary)
+                    if model.generatedCaption.isEmpty {
+                        Text("No caption was generated for these photos.")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(model.generatedCaption)
+                            .font(.body)
+                            .foregroundStyle(.primary)
+                    }
                 }
 
                 sectionCard(title: "Hashtags", systemImage: "number") {

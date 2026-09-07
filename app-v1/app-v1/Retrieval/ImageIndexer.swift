@@ -33,7 +33,12 @@ struct ImageIndexer {
         self.store = store
     }
 
-    func index(_ images: [UIImage], onProgress: @Sendable (Stage) async -> Void) async throws {
+    /// Indexes `images`, returning the freshly-created `IndexedImage`
+    /// entries (in the same order as `images`) so callers can surface
+    /// their Florence captions immediately, without a separate retrieval
+    /// round-trip against the persistent store.
+    @discardableResult
+    func index(_ images: [UIImage], onProgress: @Sendable (Stage) async -> Void) async throws -> [IndexedImage] {
         var captions = [String?](repeating: nil, count: images.count)
         for (i, image) in images.enumerated() {
             try Task.checkCancellation()
@@ -46,6 +51,7 @@ struct ImageIndexer {
         }
         await captioner.unload()
 
+        var indexedImages: [IndexedImage] = []
         for (i, image) in images.enumerated() {
             try Task.checkCancellation()
             let embedding = try await encoder.encodeImage(image)
@@ -54,8 +60,10 @@ struct ImageIndexer {
                 id: id, embedding: embedding, caption: captions[i], thumbnailFilename: "\(id.uuidString).jpg"
             )
             try await store.add(indexed, thumbnail: image)
+            indexedImages.append(indexed)
             await onProgress(.embedding(completed: i + 1, total: images.count))
         }
         await encoder.unload()
+        return indexedImages
     }
 }
