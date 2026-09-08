@@ -22,7 +22,11 @@ struct FoundationModelCaptionGenerator: CaptionGenerating {
     short, natural, engaging social-media caption — do not simply \
     describe what's in the image. Capture a mood, feeling, or story a \
     person would want to post alongside the photo, and feel free to use \
-    a tasteful emoji or two. Reply with only the caption and nothing else.
+    a tasteful emoji or two. Output the caption text itself and nothing \
+    else — no lead-in, label, or explanation of any kind. Never start \
+    your reply with phrases like "Here is your caption", "Caption:", \
+    "Sure, here's a caption", or similar preamble. The first character \
+    of your reply must be the first character of the caption itself.
     """
 
     func generate(from observations: String) async -> String {
