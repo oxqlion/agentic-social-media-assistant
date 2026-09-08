@@ -25,6 +25,16 @@ extension MLMultiArray {
         return array
     }
 
+    /// Builds a Float32 multi-array of the given shape from row-major values.
+    static func float32(shape: [Int], values: [Float]) throws -> MLMultiArray {
+        let array = try MLMultiArray(shape: shape.map(NSNumber.init), dataType: .float32)
+        let pointer = array.dataPointer.bindMemory(to: Float.self, capacity: values.count)
+        for i in 0..<values.count {
+            pointer[i] = values[i]
+        }
+        return array
+    }
+
     /// Flattens the full array to `[Float]` in row-major (logical) order.
     /// Intended for small tensors (embeddings) — not the right tool for a
     /// multi-million element tensor.
