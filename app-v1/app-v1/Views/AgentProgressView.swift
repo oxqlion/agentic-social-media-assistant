@@ -22,6 +22,7 @@ struct AgentProgressView: View {
 
     private let steps: [AgentStep] = [
         AgentStep(title: "Indexing your photos", systemImage: "photo.badge.checkmark"),
+        AgentStep(title: "Finding hashtags", systemImage: "number"),
         AgentStep(title: "Understanding your search", systemImage: "text.quote"),
         AgentStep(title: "Matching photos", systemImage: "photo.stack")
     ]
@@ -92,15 +93,23 @@ struct AgentProgressView: View {
             model.generatedCaption = await CaptionAgent().run(observations: observations)
             completedCount = 1
 
+            let hashtagContext = HashtagContext(
+                prompt: model.prompt,
+                observations: observations,
+                caption: model.generatedCaption
+            )
+            model.hashtags = await HashtagAgent().run(for: hashtagContext).hashtags
+            completedCount = 2
+
             // Scoped to this flow's photos, not the whole persistent index
             // (which accumulates across sessions) — otherwise matches would
             // include photos from previous posts.
             let result = try await RetrievalAgent().run(query: model.prompt, topK: 20, candidates: indexed)
             model.refinedQuery = result.refinedQuery
-            completedCount = 2
+            completedCount = 3
 
             model.retrievalResults = result.images
-            completedCount = 3
+            completedCount = 4
         } catch {
             model.retrievalError = String(describing: error)
         }

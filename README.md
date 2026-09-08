@@ -20,6 +20,18 @@ SwiftUI project (`app-v1.xcodeproj`) implementing the agentic flow:
 
 Open `app-v1.xcodeproj` in Xcode to build and run.
 
+### Setup
+
+The Hashtag Agent's web search tool calls [Serper](https://serper.dev). Copy
+the secrets template and fill in your API key before building:
+
+```bash
+cp app-v1/Secrets.example.swift app-v1/app-v1/Config/Secrets.swift
+# then edit app-v1/app-v1/Config/Secrets.swift with your Serper API key
+```
+
+`Config/Secrets.swift` is gitignored, so your key never lands in source control.
+
 ## `trial_models/` — AI model experiments
 
 CLIP model benchmarking for iOS image retrieval. This is where candidate models are evaluated before being exported for on-device use in the iOS app.

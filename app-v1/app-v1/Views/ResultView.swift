@@ -90,9 +90,15 @@ struct ResultView: View {
                 }
 
                 sectionCard(title: "Hashtags", systemImage: "number") {
-                    Text("#placeholder #hashtag #comingsoon #agenticai")
-                        .font(.body)
-                        .foregroundStyle(.blue)
+                    if model.hashtags.isEmpty {
+                        Text("No hashtags were generated for these photos.")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(model.hashtags.joined(separator: " "))
+                            .font(.body)
+                            .foregroundStyle(.blue)
+                    }
                 }
 
                 sectionCard(title: "Recommended Music", systemImage: "music.note") {
