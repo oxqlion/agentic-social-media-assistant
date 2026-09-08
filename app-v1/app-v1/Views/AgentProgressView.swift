@@ -3,7 +3,8 @@
 //  app-v1
 //
 //  Screen 3: runs the real on-device pipeline —
-//  index selected photos (Florence caption + CLIP embed) -> refine the
+//  index selected photos (Florence caption + CLIP embed) -> turn Florence's
+//  observations into a social-media caption (Caption Agent) -> refine the
 //  query -> retrieve top-K matches — then hands off to ResultView.
 //
 
@@ -81,9 +82,14 @@ struct AgentProgressView: View {
     private func runPipeline() async {
         do {
             let indexed = try await ImageIndexer().index(model.selectedImages) { _ in }
-            model.generatedCaption = indexed
+
+            // Florence only supplies visual observations here; the Caption
+            // Agent (on-device Foundation Model) turns them into the actual
+            // social-media caption shown to the user.
+            let observations = indexed
                 .compactMap(\.caption)
                 .joined(separator: " ")
+            model.generatedCaption = await CaptionAgent().run(observations: observations)
             completedCount = 1
 
             // Scoped to this flow's photos, not the whole persistent index
