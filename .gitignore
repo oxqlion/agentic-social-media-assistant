@@ -49,6 +49,13 @@ __pycache__/
 checkpoints/
 /models/
 
+## Sample audio (trial_models/audios/) — commercial music, too large / not ours to distribute via git
+trial_models/audios/
+*.mp3
+*.wav
+*.flac
+*.m4a
+
 ## Editor / IDE
 .vscode/
 .idea/
