@@ -1,0 +1,96 @@
+{
+  "bos": 0,
+  "eos": 2,
+  "pad": 1,
+  "cases": [
+    {
+      "text": "A table topped with lots of different types of sushi.",
+      "ids": [
+        0,
+        250,
+        2103,
+        8319,
+        19,
+        3739,
+        9,
+        430,
+        3505,
+        9,
+        28287,
+        4,
+        2
+      ],
+      "decoded": "A table topped with lots of different types of sushi."
+    },
+    {
+      "text": "A group of people standing in an elevator.",
+      "ids": [
+        0,
+        250,
+        333,
+        9,
+        82,
+        2934,
+        11,
+        41,
+        20276,
+        4,
+        2
+      ],
+      "decoded": "A group of people standing in an elevator."
+    },
+    {
+      "text": "A view of a tall building with a cloudy sky in the background.",
+      "ids": [
+        0,
+        250,
+        1217,
+        9,
+        10,
+        6764,
+        745,
+        19,
+        10,
+        2779,
+        6360,
+        11,
+        5,
+        3618,
+        4,
+        2
+      ],
+      "decoded": "A view of a tall building with a cloudy sky in the background."
+    },
+    {
+      "text": "Hello, World!",
+      "ids": [
+        0,
+        31414,
+        6,
+        623,
+        328,
+        2
+      ],
+      "decoded": "Hello, World!"
+    },
+    {
+      "text": "A dog & a cat (playing) - together!",
+      "ids": [
+        0,
+        250,
+        2335,
+        359,
+        10,
+        4758,
+        36,
+        20180,
+        43,
+        111,
+        561,
+        328,
+        2
+      ],
+      "decoded": "A dog & a cat (playing) - together!"
+    }
+  ]
+}

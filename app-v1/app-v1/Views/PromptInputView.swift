@@ -61,6 +61,15 @@ struct PromptInputView: View {
         .padding(20)
         .navigationTitle("New Post")
         .navigationBarTitleDisplayMode(.inline)
+#if DEBUG
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink("ML Debug") {
+                    MLDebugView()
+                }
+            }
+        }
+#endif
     }
 }
 

@@ -38,10 +38,55 @@ struct ResultView: View {
                     }
                 }
 
+                if !model.retrievalResults.isEmpty {
+                    sectionCard(title: "Matching Photos", systemImage: "sparkle.magnifyingglass") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if !model.refinedQuery.isEmpty {
+                                Text("Searched for: \"\(model.refinedQuery)\"")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(alignment: .top, spacing: 10) {
+                                    ForEach(model.retrievalResults) { scored in
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            RetrievalThumbnail(scored: scored)
+                                                .frame(width: 110, height: 110)
+                                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                                .clipped()
+                                            Text(String(format: "%.2f", scored.score))
+                                                .font(.caption2.weight(.semibold))
+                                                .foregroundStyle(.secondary)
+                                            if let caption = scored.image.caption {
+                                                Text(caption)
+                                                    .font(.caption2)
+                                                    .lineLimit(2)
+                                                    .frame(width: 110, alignment: .leading)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if let retrievalError = model.retrievalError {
+                    sectionCard(title: "Matching Photos", systemImage: "exclamationmark.triangle") {
+                        Text(retrievalError)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 sectionCard(title: "Caption", systemImage: "text.quote") {
-                    Text("Placeholder caption text goes here. The real AI-generated caption will appear in this spot.")
-                        .font(.body)
-                        .foregroundStyle(.primary)
+                    if model.generatedCaption.isEmpty {
+                        Text("No caption was generated for these photos.")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(model.generatedCaption)
+                            .font(.body)
+                            .foregroundStyle(.primary)
+                    }
                 }
 
                 sectionCard(title: "Hashtags", systemImage: "number") {
@@ -125,6 +170,29 @@ struct ResultView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+private struct RetrievalThumbnail: View {
+    let scored: ScoredImage
+    @State private var image: UIImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Rectangle().fill(Color(.tertiarySystemFill))
+            }
+        }
+        .task {
+            let url = ImageEmbeddingStore.shared.thumbnailURL(for: scored.image)
+            if let data = try? Data(contentsOf: url) {
+                image = UIImage(data: data)
+            }
+        }
     }
 }
 
