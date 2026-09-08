@@ -24,7 +24,8 @@ struct AgentProgressView: View {
         AgentStep(title: "Indexing your photos", systemImage: "photo.badge.checkmark"),
         AgentStep(title: "Finding hashtags", systemImage: "number"),
         AgentStep(title: "Understanding your search", systemImage: "text.quote"),
-        AgentStep(title: "Matching photos", systemImage: "photo.stack")
+        AgentStep(title: "Matching photos", systemImage: "photo.stack"),
+        AgentStep(title: "Finding matching music", systemImage: "music.note")
     ]
 
     @State private var completedCount = 0
@@ -110,6 +111,18 @@ struct AgentProgressView: View {
 
             model.retrievalResults = result.images
             completedCount = 4
+
+            do {
+                try await MusicIndexer().indexLibrary { _ in }
+                let musicResult = try await MusicRecommenderAgent().run(
+                    observations: observations, caption: model.generatedCaption
+                )
+                model.musicQuery = musicResult.query
+                model.recommendedTrack = musicResult.track
+            } catch {
+                model.musicError = String(describing: error)
+            }
+            completedCount = 5
         } catch {
             model.retrievalError = String(describing: error)
         }

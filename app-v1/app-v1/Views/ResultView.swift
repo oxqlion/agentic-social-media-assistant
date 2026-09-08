@@ -2,8 +2,9 @@
 //  ResultView.swift
 //  app-v1
 //
-//  Screen 4: shows what the agents produced. All content here is a
-//  placeholder — no real generation happens yet.
+//  Screen 4: shows what the agents produced — matching photos, caption,
+//  hashtags, and recommended music are all real. Only the "Post" button
+//  is a UI placeholder (no real posting action exists).
 //
 
 import SwiftUI
@@ -102,27 +103,54 @@ struct ResultView: View {
                 }
 
                 sectionCard(title: "Recommended Music", systemImage: "music.note") {
-                    HStack(spacing: 12) {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(.tertiarySystemFill))
-                            .frame(width: 48, height: 48)
-                            .overlay(Image(systemName: "music.note").foregroundStyle(.secondary))
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Placeholder Song Title")
-                                .font(.body.weight(.semibold))
-                            Text("Placeholder Artist Name")
-                                .font(.subheadline)
+                    VStack(alignment: .leading, spacing: 8) {
+                        if !model.musicQuery.isEmpty {
+                            Text("Searched for: \"\(model.musicQuery)\"")
+                                .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
 
-                        Spacer()
+                        if let recommended = model.recommendedTrack {
+                            HStack(spacing: 12) {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color(.tertiarySystemFill))
+                                    .frame(width: 48, height: 48)
+                                    .overlay(Image(systemName: "music.note").foregroundStyle(.secondary))
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(recommended.track.title)
+                                        .font(.body.weight(.semibold))
+                                    Text(recommended.track.artist ?? "Unknown Artist")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                Text(String(format: "%.2f", recommended.score))
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else if let musicError = model.musicError {
+                            Text(musicError)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("No matching music found on this device.")
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
 
-                sectionCard(title: "Track Segment", systemImage: "waveform") {
-                    Text("0:45 – 1:15 (placeholder)")
+                if let recommended = model.recommendedTrack {
+                    sectionCard(title: "Analyzed Segment", systemImage: "waveform") {
+                        Text(
+                            "\(formatTime(recommended.track.analyzedRange.lowerBound))"
+                            + " – \(formatTime(recommended.track.analyzedRange.upperBound))"
+                        )
                         .font(.body)
+                    }
                 }
 
                 VStack(spacing: 12) {
@@ -157,6 +185,11 @@ struct ResultView: View {
         .navigationTitle("Result")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+    }
+
+    private func formatTime(_ seconds: TimeInterval) -> String {
+        let total = Int(seconds.rounded())
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 
     @ViewBuilder

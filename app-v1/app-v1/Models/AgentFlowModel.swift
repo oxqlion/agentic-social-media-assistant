@@ -34,6 +34,16 @@ final class AgentFlowModel {
     /// Hashtags card.
     var hashtags: [String] = []
 
+    /// The music-mood phrase the Music Recommender Agent generated from
+    /// this flow's observations + caption, sent to CLAP as the query.
+    var musicQuery: String = ""
+    /// The top-matching locally-indexed song, ready for ResultView's
+    /// Recommended Music card.
+    var recommendedTrack: ScoredTrack?
+    /// Surfaced on ResultView if music indexing/recommendation failed
+    /// (most commonly: Music library access denied).
+    var musicError: String?
+
     func reset() {
         prompt = ""
         selectedPickerItems = []
@@ -43,5 +53,8 @@ final class AgentFlowModel {
         retrievalError = nil
         generatedCaption = ""
         hashtags = []
+        musicQuery = ""
+        recommendedTrack = nil
+        musicError = nil
     }
 }
