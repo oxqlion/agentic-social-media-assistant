@@ -47,8 +47,11 @@ __pycache__/
 *.mlpackage
 *.gguf
 checkpoints/
-models/
+/models/
 
 ## Editor / IDE
 .vscode/
 .idea/
+
+## Secrets (copy app-v1/Secrets.example.swift here and fill in)
+app-v1/app-v1/Config/Secrets.swift
