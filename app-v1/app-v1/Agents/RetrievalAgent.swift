@@ -26,12 +26,20 @@ struct RetrievalAgent {
 
     /// Pass `candidates` to restrict retrieval to a specific set of images
     /// (e.g. only the photos just indexed in the current flow) instead of
-    /// the entire persistent index.
-    func run(query: String, topK: Int, candidates: [IndexedImage]? = nil) async throws -> Result {
+    /// the entire persistent index. Pass `preferences` (UserPreferenceMemory,
+    /// category .image) to nudge the ranking toward liked themes and away
+    /// from avoided ones — see ImagePreferenceRanker.
+    func run(
+        query: String,
+        topK: Int,
+        candidates: [IndexedImage]? = nil,
+        preferences: [UserPreferenceMemory] = []
+    ) async throws -> Result {
         let refinedQuery = await MLPerfLog.measure("agent.query.refine") {
             await refiner.refine(query)
         }
         let images = try await retriever.search(query: refinedQuery, topK: topK, in: candidates)
-        return Result(refinedQuery: refinedQuery, images: images)
+        let ranked = ImagePreferenceRanker.apply(preferences: preferences, to: images)
+        return Result(refinedQuery: refinedQuery, images: ranked)
     }
 }

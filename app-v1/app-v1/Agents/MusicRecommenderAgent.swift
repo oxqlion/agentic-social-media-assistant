@@ -39,9 +39,12 @@ struct MusicRecommenderAgent {
         let highlightRange: ClosedRange<TimeInterval>?
     }
 
-    func run(observations: String, caption: String) async throws -> Result {
+    /// `preferenceContext` (see UserPreferenceMemory.asPromptFacts) nudges
+    /// the generated mood query toward this user's learned music
+    /// preferences.
+    func run(observations: String, caption: String, preferenceContext: String = "") async throws -> Result {
         let query = await MLPerfLog.measure("agent.music.query") {
-            await generator.generateQuery(observations: observations, caption: caption)
+            await generator.generateQuery(observations: observations, caption: caption, preferenceContext: preferenceContext)
         }
         guard !query.isEmpty else { return Result(query: query, track: nil, highlightRange: nil) }
 

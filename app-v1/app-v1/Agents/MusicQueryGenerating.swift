@@ -12,7 +12,10 @@
 protocol MusicQueryGenerating: Sendable {
     /// Turns visual `observations` (Florence) and the generated social
     /// `caption` into a short, CLAP-friendly music-mood phrase (e.g. "a
-    /// warm, nostalgic acoustic tune"). Never throws: a generator that
-    /// can't help falls back to the raw context text.
-    func generateQuery(observations: String, caption: String) async -> String
+    /// warm, nostalgic acoustic tune"). `preferenceContext` is an optional
+    /// plain-fact style hint (e.g. "likes acoustic, avoids electronic",
+    /// see UserPreferenceMemory.asPromptFacts) nudging mood/genre choice
+    /// toward this user's learned music preferences. Never throws: a
+    /// generator that can't help falls back to the raw context text.
+    func generateQuery(observations: String, caption: String, preferenceContext: String) async -> String
 }

@@ -20,8 +20,10 @@ struct CaptionAgent {
 
     /// Turns `observations` — Florence's raw visual description(s) of the
     /// selected photos — into a single engaging social-media caption.
-    func run(observations: String) async -> String {
+    /// `preferenceContext` (see UserPreferenceMemory.asPromptFacts) nudges
+    /// style/theme emphasis toward this user's learned image preferences.
+    func run(observations: String, preferenceContext: String = "") async -> String {
         guard !observations.isEmpty else { return observations }
-        return await generator.generate(from: observations)
+        return await generator.generate(from: observations, preferenceContext: preferenceContext)
     }
 }
