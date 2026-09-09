@@ -82,6 +82,13 @@ struct AgentProgressView: View {
     }
 
     private func runPipeline() async {
+        // Learned preferences, fetched once per flow: image-theme
+        // preferences bias photo ranking and caption style, music
+        // preferences bias the generated mood query. See
+        // Memory/MemoryManager.swift and UserPreferenceMemory+PromptFacts.
+        let imagePreferences = MemoryManager.shared.getPreferences(for: .image)
+        let musicPreferences = MemoryManager.shared.getPreferences(for: .music)
+
         do {
             let indexed = try await ImageIndexer().index(model.selectedImages) { _ in }
 
@@ -91,7 +98,10 @@ struct AgentProgressView: View {
             let observations = indexed
                 .compactMap(\.caption)
                 .joined(separator: " ")
-            model.generatedCaption = await CaptionAgent().run(observations: observations)
+            model.generatedCaption = await CaptionAgent().run(
+                observations: observations,
+                preferenceContext: imagePreferences.asPromptFacts()
+            )
             completedCount = 1
 
             let hashtagContext = HashtagContext(
@@ -105,7 +115,9 @@ struct AgentProgressView: View {
             // Scoped to this flow's photos, not the whole persistent index
             // (which accumulates across sessions) — otherwise matches would
             // include photos from previous posts.
-            let result = try await RetrievalAgent().run(query: model.prompt, topK: 20, candidates: indexed)
+            let result = try await RetrievalAgent().run(
+                query: model.prompt, topK: 20, candidates: indexed, preferences: imagePreferences
+            )
             model.refinedQuery = result.refinedQuery
             completedCount = 3
 
@@ -116,7 +128,9 @@ struct AgentProgressView: View {
             do {
                 try await MusicIndexer().indexLibrary { _ in }
                 let musicResult = try await MusicRecommenderAgent().run(
-                    observations: observations, caption: model.generatedCaption
+                    observations: observations,
+                    caption: model.generatedCaption,
+                    preferenceContext: musicPreferences.asPromptFacts()
                 )
                 model.musicQuery = musicResult.query
                 model.recommendedTrack = musicResult.track

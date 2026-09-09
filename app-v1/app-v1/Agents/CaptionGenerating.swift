@@ -11,13 +11,17 @@
 protocol CaptionGenerating: Sendable {
     /// Turns Florence's raw visual observations (e.g. "A tall building with
     /// a clock tower and blue sky.") into a natural, engaging social-media
-    /// caption. Never throws: a generator that can't help returns the
-    /// observations unchanged.
-    func generate(from observations: String) async -> String
+    /// caption. `preferenceContext` is an optional plain-fact style hint
+    /// (e.g. "likes landscape, avoids selfie", see
+    /// UserPreferenceMemory.asPromptFacts) — implementations should treat
+    /// it as a loose style nudge, never as license to describe something
+    /// not actually in `observations`. Never throws: a generator that
+    /// can't help returns the observations unchanged.
+    func generate(from observations: String, preferenceContext: String) async -> String
 }
 
 /// Generator of last resort: passes Florence's observations through
 /// unchanged. Used when no on-device language model is available.
 struct PassthroughCaptionGenerator: CaptionGenerating {
-    func generate(from observations: String) async -> String { observations }
+    func generate(from observations: String, preferenceContext: String) async -> String { observations }
 }

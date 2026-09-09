@@ -23,7 +23,7 @@ struct FoundationModelMusicQueryGenerator: MusicQueryGenerating {
     nothing else.
     """
 
-    func generateQuery(observations: String, caption: String) async -> String {
+    func generateQuery(observations: String, caption: String, preferenceContext: String) async -> String {
         let context = [observations, caption]
             .filter { !$0.isEmpty }
             .joined(separator: " ")
@@ -34,10 +34,14 @@ struct FoundationModelMusicQueryGenerator: MusicQueryGenerating {
             return context
         }
 
+        let prompt = preferenceContext.isEmpty
+            ? context
+            : "\(context)\n\nThis user's music taste from past posts (follow loosely): \(preferenceContext)."
+
         do {
             let session = LanguageModelSession(instructions: Self.instructions)
             let response = try await MLPerfLog.measure("agent.music.generate") {
-                try await session.respond(to: context)
+                try await session.respond(to: prompt)
             }
             let generated = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
             return generated.isEmpty ? context : generated

@@ -25,7 +25,7 @@ struct FoundationModelCaptionGenerator: CaptionGenerating {
     a tasteful emoji or two. Reply with only the caption and nothing else.
     """
 
-    func generate(from observations: String) async -> String {
+    func generate(from observations: String, preferenceContext: String) async -> String {
         let trimmed = observations.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return observations }
 
@@ -34,10 +34,14 @@ struct FoundationModelCaptionGenerator: CaptionGenerating {
             return observations
         }
 
+        let prompt = preferenceContext.isEmpty
+            ? trimmed
+            : "\(trimmed)\n\nStyle guidance from this user's past posts (follow loosely — only describe what's actually in the observations above): \(preferenceContext)."
+
         do {
             let session = LanguageModelSession(instructions: Self.instructions)
             let response = try await MLPerfLog.measure("agent.caption.generate") {
-                try await session.respond(to: trimmed)
+                try await session.respond(to: prompt)
             }
             let caption = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
             return caption.isEmpty ? observations : caption

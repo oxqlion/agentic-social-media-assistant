@@ -53,6 +53,19 @@ enum BehavioralSignalExtractor {
         return signals
     }
 
+    /// The image-theme tags (e.g. "landscape", "selfie") matched in one
+    /// caption — exposed so ranking logic (see ImagePreferenceRanker) can
+    /// recognize the same themes memory learns from, instead of keeping a
+    /// second, driftable keyword table.
+    static func imageTags(in caption: String) -> Set<String> {
+        let lower = caption.lowercased()
+        return imageKeywordTags.reduce(into: Set<String>()) { tags, tag in
+            if tag.keywords.contains(where: { lower.contains($0) }) {
+                tags.insert(tag.value)
+            }
+        }
+    }
+
     private static func tagSignals(
         from captions: [String],
         category: PreferenceCategory,
@@ -61,12 +74,9 @@ enum BehavioralSignalExtractor {
         var seenValues = Set<String>()
         var out: [BehavioralSignal] = []
         for caption in captions {
-            let lower = caption.lowercased()
-            for tag in imageKeywordTags where !seenValues.contains(tag.value) {
-                if tag.keywords.contains(where: { lower.contains($0) }) {
-                    out.append(BehavioralSignal(category: category, value: tag.value, polarity: polarity))
-                    seenValues.insert(tag.value)
-                }
+            for value in imageTags(in: caption) where !seenValues.contains(value) {
+                out.append(BehavioralSignal(category: category, value: value, polarity: polarity))
+                seenValues.insert(value)
             }
         }
         return out
