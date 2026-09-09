@@ -27,6 +27,10 @@ final class AgentFlowModel {
     var retrievalResults: [ScoredImage] = []
     /// Surfaced on ResultView if indexing/retrieval failed.
     var retrievalError: String?
+    /// Every photo indexed this flow, before the top-K retrieval filter —
+    /// kept so ResultView can tell MemoryManager which candidates were
+    /// shown but not selected (`indexedCandidates` minus `retrievalResults`).
+    var indexedCandidates: [IndexedImage] = []
     /// Florence's caption(s) for the newly-selected photos, joined for
     /// display in ResultView's Caption card.
     var generatedCaption: String = ""
@@ -56,6 +60,7 @@ final class AgentFlowModel {
         refinedQuery = ""
         retrievalResults = []
         retrievalError = nil
+        indexedCandidates = []
         generatedCaption = ""
         hashtags = []
         musicQuery = ""
