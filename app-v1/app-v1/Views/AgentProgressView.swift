@@ -109,6 +109,7 @@ struct AgentProgressView: View {
             model.refinedQuery = result.refinedQuery
             completedCount = 3
 
+            model.indexedCandidates = indexed
             model.retrievalResults = result.images
             completedCount = 4
 

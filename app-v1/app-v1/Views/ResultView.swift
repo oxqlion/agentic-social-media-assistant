@@ -14,6 +14,8 @@ struct ResultView: View {
     @Binding var path: [FlowStep]
 
     @State private var player = HighlightPlayer()
+    @State private var pendingMemoryParagraph: String = ""
+    @State private var isLoadingPendingMemory = true
 
     var body: some View {
         ScrollView {
@@ -172,8 +174,19 @@ struct ResultView: View {
                     }
                 }
 
+                sectionCard(title: "What This Post Will Teach Your Agents", systemImage: "brain") {
+                    if isLoadingPendingMemory && pendingMemoryParagraph.isEmpty {
+                        ProgressView()
+                    } else {
+                        Text(pendingMemoryParagraph)
+                            .font(.body)
+                            .foregroundStyle(.primary)
+                    }
+                }
+
                 VStack(spacing: 12) {
                     Button {
+                        recordPostToMemory()
                         // No real posting action yet — UI placeholder only.
                     } label: {
                         Text("Post")
@@ -206,6 +219,62 @@ struct ResultView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .onDisappear { player.stop() }
+        .task { await loadPendingMemoryParagraph() }
+    }
+
+    /// This flow's outcome in MemoryManager's terms — which images the
+    /// retrieval agent surfaced vs. which candidate photos got passed
+    /// over, and whether a music recommendation was produced. Shared by
+    /// the "what this post will teach your agents" preview and the actual
+    /// recordPost call, so the preview never drifts from what actually
+    /// gets written.
+    private func pendingPostOutcome() -> (selected: [PostImageOutcome], rejected: [PostImageOutcome], music: PostMusicOutcome?) {
+        let selectedIDs = Set(model.retrievalResults.map(\.id))
+        let selectedImages = model.retrievalResults.map {
+            PostImageOutcome(id: $0.image.id.uuidString, caption: $0.image.caption)
+        }
+        let rejectedImages = model.indexedCandidates
+            .filter { !selectedIDs.contains($0.id) }
+            .map { PostImageOutcome(id: $0.id.uuidString, caption: $0.caption) }
+
+        let acceptedMusic = model.recommendedTrack.map {
+            PostMusicOutcome(id: String($0.track.persistentID), query: model.musicQuery)
+        }
+
+        return (selectedImages, rejectedImages, acceptedMusic)
+    }
+
+    /// Feeds this flow's outcome to the persistent preference memory. See
+    /// Memory/MemoryManager.swift.
+    private func recordPostToMemory() {
+        let outcome = pendingPostOutcome()
+        MemoryManager.shared.recordPost(
+            prompt: model.prompt,
+            selectedImages: outcome.selected,
+            rejectedImages: outcome.rejected,
+            acceptedMusic: outcome.music
+        )
+    }
+
+    /// Generates the "what this post will teach your agents" paragraph
+    /// from the same BehavioralSignal extraction MemoryManager.recordPost
+    /// uses internally — a preview only, nothing is written to memory
+    /// until the Post button is actually tapped.
+    private func loadPendingMemoryParagraph() async {
+        isLoadingPendingMemory = true
+
+        let outcome = pendingPostOutcome()
+        var signals = BehavioralSignalExtractor.imageSignals(
+            selectedCaptions: outcome.selected.compactMap(\.caption),
+            rejectedCaptions: outcome.rejected.compactMap(\.caption)
+        )
+        signals += BehavioralSignalExtractor.musicSignals(
+            acceptedQuery: outcome.music?.query,
+            rejectedQueries: []
+        )
+
+        pendingMemoryParagraph = await MemoryNarrationAgent().summarizePendingPost(signals: signals)
+        isLoadingPendingMemory = false
     }
 
     private func formatTime(_ seconds: TimeInterval) -> String {
