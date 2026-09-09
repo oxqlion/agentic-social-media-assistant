@@ -43,6 +43,11 @@ final class AgentFlowModel {
     /// Surfaced on ResultView if music indexing/recommendation failed
     /// (most commonly: Music library access denied).
     var musicError: String?
+    /// `recommendedTrack`'s detected highlight/chorus window (see
+    /// TrackHighlightDetecting), ready for ResultView's Highlight card.
+    /// `nil` if no track was recommended or highlight detection failed —
+    /// that's not surfaced as an error, the card just doesn't show.
+    var highlightRange: ClosedRange<TimeInterval>?
 
     func reset() {
         prompt = ""
@@ -56,5 +61,6 @@ final class AgentFlowModel {
         musicQuery = ""
         recommendedTrack = nil
         musicError = nil
+        highlightRange = nil
     }
 }

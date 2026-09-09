@@ -143,13 +143,16 @@ struct ResultView: View {
                     }
                 }
 
-                if let recommended = model.recommendedTrack {
-                    sectionCard(title: "Analyzed Segment", systemImage: "waveform") {
-                        Text(
-                            "\(formatTime(recommended.track.analyzedRange.lowerBound))"
-                            + " – \(formatTime(recommended.track.analyzedRange.upperBound))"
-                        )
-                        .font(.body)
+                if model.recommendedTrack != nil {
+                    sectionCard(title: "Highlight", systemImage: "waveform") {
+                        if let highlightRange = model.highlightRange {
+                            Text("\(formatTime(highlightRange.lowerBound)) – \(formatTime(highlightRange.upperBound))")
+                                .font(.body)
+                        } else {
+                            Text("Couldn't detect a highlight for this track.")
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
 

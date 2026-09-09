@@ -119,6 +119,7 @@ struct AgentProgressView: View {
                 )
                 model.musicQuery = musicResult.query
                 model.recommendedTrack = musicResult.track
+                model.highlightRange = musicResult.highlightRange
             } catch {
                 model.musicError = String(describing: error)
             }
