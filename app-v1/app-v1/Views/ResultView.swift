@@ -13,6 +13,8 @@ struct ResultView: View {
     @Bindable var model: AgentFlowModel
     @Binding var path: [FlowStep]
 
+    @State private var player = HighlightPlayer()
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -144,12 +146,29 @@ struct ResultView: View {
                 }
 
                 if let recommended = model.recommendedTrack {
-                    sectionCard(title: "Analyzed Segment", systemImage: "waveform") {
-                        Text(
-                            "\(formatTime(recommended.track.analyzedRange.lowerBound))"
-                            + " – \(formatTime(recommended.track.analyzedRange.upperBound))"
-                        )
-                        .font(.body)
+                    sectionCard(title: "Highlight", systemImage: "waveform") {
+                        if let highlightRange = model.highlightRange {
+                            HStack {
+                                Text("\(formatTime(highlightRange.lowerBound)) – \(formatTime(highlightRange.upperBound))")
+                                    .font(.body)
+
+                                Spacer()
+
+                                Button {
+                                    if let url = MediaLibraryLookup.assetURL(forPersistentID: recommended.track.persistentID) {
+                                        player.toggle(url: url, range: highlightRange)
+                                    }
+                                } label: {
+                                    Image(systemName: player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                                        .font(.system(size: 30))
+                                        .foregroundStyle(Color.accentColor)
+                                }
+                            }
+                        } else {
+                            Text("Couldn't detect a highlight for this track.")
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
 
@@ -167,6 +186,7 @@ struct ResultView: View {
                     }
 
                     Button {
+                        player.stop()
                         model.reset()
                         path = []
                     } label: {
@@ -185,6 +205,7 @@ struct ResultView: View {
         .navigationTitle("Result")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+        .onDisappear { player.stop() }
     }
 
     private func formatTime(_ seconds: TimeInterval) -> String {
