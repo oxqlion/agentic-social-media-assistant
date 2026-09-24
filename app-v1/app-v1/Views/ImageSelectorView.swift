@@ -81,6 +81,15 @@ struct ImageSelectorView: View {
         .onChange(of: model.selectedPickerItems) { _, newItems in
             loadImages(from: newItems)
         }
+        .task {
+            // OS27 case study bypass: skip the interactive picker and load
+            // the fixed fixture photo set instead, so controlled benchmark
+            // runs don't depend on the test device's actual Photos library
+            // state. See CaseStudy/CaseStudyFixtures.swift.
+            if CaseStudyFixtures.isEnabled {
+                model.selectedImages = CaseStudyFixtures.loadPhotos()
+            }
+        }
     }
 
     private func loadImages(from items: [PhotosPickerItem]) {
