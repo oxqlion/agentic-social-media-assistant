@@ -126,7 +126,11 @@ struct AgentProgressView: View {
             completedCount = 4
 
             do {
-                try await MusicIndexer().indexLibrary { _ in }
+                if CaseStudyFixtures.isEnabled {
+                    try await MusicIndexer().indexFixtures { _ in }
+                } else {
+                    try await MusicIndexer().indexLibrary { _ in }
+                }
                 let musicResult = try await MusicRecommenderAgent().run(
                     observations: observations,
                     caption: model.generatedCaption,

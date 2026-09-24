@@ -59,9 +59,15 @@ struct MusicRecommenderAgent {
 
     /// Best-effort: a track the on-device library can't currently resolve
     /// to a file (or that fails to decode) just means no highlight card,
-    /// not a failed recommendation.
+    /// not a failed recommendation. In case-study fixture mode, `track`
+    /// came from `MusicIndexer.indexFixtures()` and has no real on-device
+    /// library entry, so its file is resolved via `CaseStudyFixtures`
+    /// instead of `MediaLibraryLookup`.
     private func findHighlight(for track: IndexedTrack) async -> ClosedRange<TimeInterval>? {
-        guard let url = MediaLibraryLookup.assetURL(forPersistentID: track.persistentID) else { return nil }
+        let url = CaseStudyFixtures.isEnabled
+            ? CaseStudyFixtures.assetURL(forPersistentID: track.persistentID)
+            : MediaLibraryLookup.assetURL(forPersistentID: track.persistentID)
+        guard let url else { return nil }
         do {
             return try await MLPerfLog.measure("agent.music.highlight") {
                 try await highlightDetector.detectHighlight(url: url)
