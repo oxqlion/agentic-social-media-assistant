@@ -45,6 +45,7 @@ struct PromptInputView: View {
                         .scrollContentBackground(.hidden)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
+                        .accessibilityIdentifier("promptTextEditor")
                 }
                 .frame(height: 160)
 
@@ -74,6 +75,7 @@ struct PromptInputView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
                 .disabled(!canContinue)
+                .accessibilityIdentifier("choosePhotosButton")
             }
             .padding(20)
         }
