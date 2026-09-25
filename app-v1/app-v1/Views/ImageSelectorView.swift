@@ -74,6 +74,7 @@ struct ImageSelectorView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14))
             }
             .disabled(model.selectedImages.isEmpty)
+            .accessibilityIdentifier("continueButton")
         }
         .padding(20)
         .navigationTitle("Select Photos")
