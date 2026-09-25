@@ -210,11 +210,13 @@ struct ResultView: View {
                             .background(Color(.secondarySystemBackground))
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
+                    .accessibilityIdentifier("startOverButton")
                 }
                 .padding(.top, 8)
             }
             .padding(20)
         }
+        .accessibilityIdentifier("resultView")
         .navigationTitle("Result")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
