@@ -15,7 +15,7 @@ import Foundation
 import FoundationModels
 
 struct FoundationModelCaptionGenerator: CaptionGenerating {
-    private static let instructions = """
+    fileprivate static let baseInstructions = """
     You are a social-media copywriter. You receive plain visual \
     observations describing a photo (objects, scenery, setting) produced \
     by an image-understanding model. Rewrite those observations into a \
@@ -34,14 +34,12 @@ struct FoundationModelCaptionGenerator: CaptionGenerating {
             return observations
         }
 
-        let prompt = preferenceContext.isEmpty
-            ? trimmed
-            : "\(trimmed)\n\nStyle guidance from this user's past posts (follow loosely — only describe what's actually in the observations above): \(preferenceContext)."
-
         do {
-            let session = LanguageModelSession(instructions: Self.instructions)
+            let session = LanguageModelSession(
+                dynamicInstructions: CaptionInstructions(preferenceContext: preferenceContext)
+            )
             let response = try await MLPerfLog.measure("agent.caption.generate") {
-                try await session.respond(to: prompt)
+                try await session.respond(to: trimmed)
             }
             let caption = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
             return caption.isEmpty ? observations : caption
@@ -49,5 +47,19 @@ struct FoundationModelCaptionGenerator: CaptionGenerating {
             MLPerfLog.info("caption generation failed, using raw observations: \(error)")
             return observations
         }
+    }
+}
+
+/// Base copywriter instructions plus the user's learned style preferences,
+/// composed as OS27 Dynamic Instructions.
+private struct CaptionInstructions: DynamicInstructions {
+    let preferenceContext: String
+
+    var body: some DynamicInstructions {
+        Instructions { FoundationModelCaptionGenerator.baseInstructions }
+        PreferenceInstructions(
+            facts: preferenceContext,
+            lead: "Style guidance from this user's past posts (follow loosely — only describe what's actually in the observations):"
+        )
     }
 }

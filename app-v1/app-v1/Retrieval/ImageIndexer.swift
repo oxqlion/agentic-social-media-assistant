@@ -20,15 +20,20 @@ struct ImageIndexer {
     }
 
     private let captioner: FlorenceCaptioner
+    /// When non-nil (OS27 path, see OS27Models), describes photos instead of
+    /// Florence. Florence stays as the fallback path when this is nil.
+    private let describer: ImageDescribing?
     private let encoder: CLIPEncoder
     private let store: ImageEmbeddingStore
 
     init(
         captioner: FlorenceCaptioner = .shared,
+        describer: ImageDescribing? = OS27Models.makeImageDescriber(),
         encoder: CLIPEncoder = .shared,
         store: ImageEmbeddingStore = .shared
     ) {
         self.captioner = captioner
+        self.describer = describer
         self.encoder = encoder
         self.store = store
     }
@@ -42,14 +47,18 @@ struct ImageIndexer {
         var captions = [String?](repeating: nil, count: images.count)
         for (i, image) in images.enumerated() {
             try Task.checkCancellation()
-            do {
-                captions[i] = try await captioner.caption(image)
-            } catch {
-                MLPerfLog.info("florence caption failed for image \(i): \(error)")
+            if let describer {
+                captions[i] = await describer.describe(image)
+            } else {
+                do {
+                    captions[i] = try await captioner.caption(image)
+                } catch {
+                    MLPerfLog.info("florence caption failed for image \(i): \(error)")
+                }
             }
             await onProgress(.captioning(completed: i + 1, total: images.count))
         }
-        await captioner.unload()
+        if describer == nil { await captioner.unload() }
 
         var indexedImages: [IndexedImage] = []
         for (i, image) in images.enumerated() {

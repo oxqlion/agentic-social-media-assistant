@@ -14,7 +14,10 @@ import Foundation
 import FoundationModels
 
 struct FoundationModelMusicQueryGenerator: MusicQueryGenerating {
-    private static let instructions = """
+    /// Lets the model look up fuller music preferences on demand.
+    let preferencesTool = GetUserPreferencesTool()
+
+    fileprivate static let baseInstructions = """
     You suggest background music for a social media post. Given a visual \
     description of the photos and the post's caption, reply with a short \
     phrase describing the mood, genre, and instrumentation of a fitting \
@@ -34,14 +37,12 @@ struct FoundationModelMusicQueryGenerator: MusicQueryGenerating {
             return context
         }
 
-        let prompt = preferenceContext.isEmpty
-            ? context
-            : "\(context)\n\nThis user's music taste from past posts (follow loosely): \(preferenceContext)."
-
         do {
-            let session = LanguageModelSession(instructions: Self.instructions)
+            let session = LanguageModelSession(
+                dynamicInstructions: MusicQueryInstructions(preferenceContext: preferenceContext, tool: preferencesTool)
+            )
             let response = try await MLPerfLog.measure("agent.music.generate") {
-                try await session.respond(to: prompt)
+                try await session.respond(to: context)
             }
             let generated = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
             return generated.isEmpty ? context : generated
@@ -49,5 +50,21 @@ struct FoundationModelMusicQueryGenerator: MusicQueryGenerating {
             MLPerfLog.info("music query generation failed, using raw context: \(error)")
             return context
         }
+    }
+}
+
+/// Base instructions + learned music taste + an on-demand preferences tool,
+/// composed as OS27 Dynamic Instructions.
+private struct MusicQueryInstructions: DynamicInstructions {
+    let preferenceContext: String
+    let tool: GetUserPreferencesTool
+
+    var body: some DynamicInstructions {
+        Instructions { FoundationModelMusicQueryGenerator.baseInstructions }
+        PreferenceInstructions(
+            facts: preferenceContext,
+            lead: "This user's music taste from past posts (follow loosely):"
+        )
+        tool
     }
 }
