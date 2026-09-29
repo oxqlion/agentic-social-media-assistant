@@ -46,6 +46,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "F25EC73E304E507600FEDB3C"
                BuildableName = "app-v1UITests.xctest"
+               BlueprintName = "app-v1UITests"
                ReferencedContainer = "container:app-v1.xcodeproj">
             </BuildableReference>
          </TestableReference>

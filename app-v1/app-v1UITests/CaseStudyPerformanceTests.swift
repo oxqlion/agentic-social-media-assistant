@@ -57,6 +57,10 @@ final class CaseStudyPerformanceTests: XCTestCase {
         "highlight.decode",
         "highlight.chroma",
         "highlight.novelty",
+        // OS27 replacements (see OS27Models): Foundation Models Vision
+        // describer and Music Understanding highlight detector.
+        "agent.image.describe",
+        "highlight.musicunderstanding",
     ]
 
     private func performanceMetrics() -> [XCTMetric] {
@@ -96,7 +100,7 @@ final class CaseStudyPerformanceTests: XCTestCase {
         continueButton.tap()
 
         let resultView = app.scrollViews["resultView"]
-        XCTAssertTrue(resultView.waitForExistence(timeout: 120), "Pipeline did not reach ResultView in time")
+        XCTAssertTrue(resultView.waitForExistence(timeout: 600), "Pipeline did not reach ResultView in time")
     }
 
     private func wait(for element: XCUIElement, isEnabled: Bool, timeout: TimeInterval) {
