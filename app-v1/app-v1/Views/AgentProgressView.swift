@@ -107,7 +107,8 @@ struct AgentProgressView: View {
             let hashtagContext = HashtagContext(
                 prompt: model.prompt,
                 observations: observations,
-                caption: model.generatedCaption
+                caption: model.generatedCaption,
+                images: model.selectedImages
             )
             model.hashtags = await HashtagAgent().run(for: hashtagContext).hashtags
             completedCount = 2

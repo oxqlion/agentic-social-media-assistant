@@ -23,7 +23,7 @@ struct MusicRecommenderAgent {
     init(
         generator: MusicQueryGenerating = FoundationModelMusicQueryGenerator(),
         retriever: MusicRetriever = MusicRetriever(),
-        highlightDetector: TrackHighlightDetecting = SelfSimilarityHighlightDetector()
+        highlightDetector: TrackHighlightDetecting = OS27Models.makeHighlightDetector()
     ) {
         self.generator = generator
         self.retriever = retriever

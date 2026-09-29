@@ -8,6 +8,8 @@
 //  implementing this protocol, not touching HashtagAgent.
 //
 
+import UIKit
+
 /// Everything the extractor knows about the post being hashtagged.
 struct HashtagContext: Sendable {
     /// The user's raw search/post prompt.
@@ -16,6 +18,10 @@ struct HashtagContext: Sendable {
     let observations: String
     /// The Caption Agent's generated social-media caption.
     let caption: String
+    /// The selected photos themselves, when available. Lets the extractor
+    /// read text in them (OCR) — a sign or venue name a plain description
+    /// would miss. Empty in tests and when photos aren't at hand.
+    var images: [UIImage] = []
 }
 
 /// An unscored hashtag candidate, labelled but not yet ranked.

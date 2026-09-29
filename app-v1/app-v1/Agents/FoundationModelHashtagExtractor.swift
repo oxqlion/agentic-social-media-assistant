@@ -12,6 +12,10 @@
 
 import Foundation
 import FoundationModels
+import UIKit
+#if canImport(_Vision_FoundationModels)
+import _Vision_FoundationModels
+#endif
 
 @Generable
 enum GeneratedHashtagCategory: String {
@@ -45,7 +49,7 @@ struct HashtagExtraction {
 }
 
 struct FoundationModelHashtagExtractor: HashtagExtracting {
-    private static let instructions = """
+    fileprivate static let baseInstructions = """
     You are a social-media hashtag researcher. You're given a post's \
     search prompt, visual observations of its photos, and its caption. \
     Your job is to find hashtags people are actually using right now for \
@@ -56,7 +60,9 @@ struct FoundationModelHashtagExtractor: HashtagExtracting {
     "trending hashtags" or "instagram hashtags" — before answering. Use \
     the search results to find real, currently-used hashtags; do not \
     invent hashtags that never appeared in a search result unless they \
-    are an obvious, well-known variant.
+    are an obvious, well-known variant. If photos are attached and an OCR \
+    tool is available, use it to read any visible text (signs, venue names, \
+    banners) and let that inform your searches.
 
     For each hashtag, classify its category as one of: location (place \
     names), subject (who/what is in the post), activity (what's \
@@ -64,6 +70,9 @@ struct FoundationModelHashtagExtractor: HashtagExtracting {
     community/interest). Estimate its popularity as high, medium, or \
     niche based on how often it appeared in the search results.
     """
+
+    /// Bounds context-window use: attached photos are the priciest tokens.
+    private static let maxAttachedImages = 3
 
     let search: WebSearching
     let fallback: HashtagExtracting
@@ -81,13 +90,26 @@ struct FoundationModelHashtagExtractor: HashtagExtracting {
 
         let log = WebSearchLog()
         let tool = WebSearchTool(search: search, log: log)
-        let session = LanguageModelSession(tools: [tool], instructions: Self.instructions)
+        // Photos are only attached (and OCR only offered) when the model can
+        // take images; otherwise this is the original text-only flow.
+        let images = SystemLanguageModel.default.capabilities.contains(.vision)
+            ? Array(context.images.prefix(Self.maxAttachedImages))
+            : []
+        let session = LanguageModelSession(
+            dynamicInstructions: HashtagInstructions(searchTool: tool, offerOCR: !images.isEmpty)
+        )
 
-        let prompt = """
+        let text = """
         Prompt: \(context.prompt)
         Visual observations: \(context.observations)
         Caption: \(context.caption)
         """
+        let prompt = Prompt {
+            text
+            for image in images {
+                Attachment(image)
+            }
+        }
 
         do {
             let response = try await MLPerfLog.measure("agent.hashtag.extract") {
@@ -110,5 +132,23 @@ struct FoundationModelHashtagExtractor: HashtagExtracting {
             MLPerfLog.info("hashtag extraction failed, using search-only fallback: \(error)")
             return await fallback.extract(for: context)
         }
+    }
+}
+
+/// Base researcher instructions + the web_search tool, plus Vision OCR when
+/// photos are attached (device SDK only; the simulator SDK ships no Vision
+/// tools module) — composed as OS27 Dynamic Instructions.
+private struct HashtagInstructions: DynamicInstructions {
+    let searchTool: WebSearchTool
+    let offerOCR: Bool
+
+    var body: some DynamicInstructions {
+        Instructions { FoundationModelHashtagExtractor.baseInstructions }
+        searchTool
+        #if canImport(_Vision_FoundationModels)
+        if offerOCR {
+            OCRTool()
+        }
+        #endif
     }
 }
