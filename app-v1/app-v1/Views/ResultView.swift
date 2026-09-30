@@ -16,6 +16,9 @@ struct ResultView: View {
     @State private var player = HighlightPlayer()
     @State private var pendingMemoryParagraph: String = ""
     @State private var isLoadingPendingMemory = true
+    /// Case study fixture mode only: JSON of the preference memory right
+    /// after "Post" was tapped. See CaseStudy/CaseStudyResultExport.swift.
+    @State private var caseStudyPostMemoryJSON: String?
 
     var body: some View {
         ScrollView {
@@ -187,6 +190,9 @@ struct ResultView: View {
                 VStack(spacing: 12) {
                     Button {
                         recordPostToMemory()
+                        if CaseStudyFixtures.isEnabled {
+                            caseStudyPostMemoryJSON = CaseStudyResultExport.json(CaseStudyResultExport.postMemorySnapshot())
+                        }
                         // No real posting action yet — UI placeholder only.
                     } label: {
                         Text("Post")
@@ -197,6 +203,7 @@ struct ResultView: View {
                             .foregroundStyle(.white)
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
+                    .accessibilityIdentifier("postButton")
 
                     Button {
                         player.stop()
@@ -217,6 +224,7 @@ struct ResultView: View {
             .padding(20)
         }
         .accessibilityIdentifier("resultView")
+        .overlay(alignment: .topLeading) { caseStudyExportProbes }
         .navigationTitle("Result")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -277,6 +285,38 @@ struct ResultView: View {
 
         pendingMemoryParagraph = await MemoryNarrationAgent().summarizePendingPost(signals: signals)
         isLoadingPendingMemory = false
+    }
+
+    /// Case study fixture mode only: invisible 1pt accessibility elements
+    /// whose values carry the flow's outputs as JSON, so the UI test (a
+    /// separate process) can read and attach them. The result element only
+    /// appears once the pending-memory paragraph has loaded, so it is
+    /// complete when it exists. See CaseStudy/CaseStudyResultExport.swift.
+    @ViewBuilder
+    private var caseStudyExportProbes: some View {
+        if CaseStudyFixtures.isEnabled {
+            ZStack {
+                if !isLoadingPendingMemory {
+                    caseStudyProbe(
+                        "caseStudyResultJSON",
+                        json: CaseStudyResultExport.json(
+                            CaseStudyResultExport.snapshot(model: model, pendingMemoryParagraph: pendingMemoryParagraph)
+                        )
+                    )
+                }
+                if let caseStudyPostMemoryJSON {
+                    caseStudyProbe("caseStudyPostMemoryJSON", json: caseStudyPostMemoryJSON)
+                }
+            }
+        }
+    }
+
+    private func caseStudyProbe(_ identifier: String, json: String) -> some View {
+        Color.clear
+            .frame(width: 1, height: 1)
+            .accessibilityElement()
+            .accessibilityIdentifier(identifier)
+            .accessibilityValue(json)
     }
 
     private func formatTime(_ seconds: TimeInterval) -> String {

@@ -88,7 +88,9 @@ struct ImageSelectorView: View {
             // runs don't depend on the test device's actual Photos library
             // state. See CaseStudy/CaseStudyFixtures.swift.
             if CaseStudyFixtures.isEnabled {
-                model.selectedImages = CaseStudyFixtures.loadPhotos()
+                let entries = CaseStudyFixtures.loadPhotoEntries()
+                model.selectedImages = entries.map(\.image)
+                model.selectedPhotoNames = entries.map(\.filename)
             }
         }
     }

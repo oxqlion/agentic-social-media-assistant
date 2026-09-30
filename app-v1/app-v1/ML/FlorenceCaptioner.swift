@@ -18,6 +18,7 @@
 //  isolation — Core ML inference must not run on the main thread.
 //
 
+import CoreAI
 import CoreML
 import UIKit
 
@@ -32,11 +33,15 @@ actor FlorenceCaptioner {
 
     private var encoderModel: MLModel?
     private var decoderModel: MLModel?
+    private var encoderFunction: InferenceFunction?
+    private var decoderFunction: InferenceFunction?
     private var vocabulary: FlorenceVocabulary?
 
     private init() {}
 
     func caption(_ image: UIImage) async throws -> String {
+        if OS27Models.useCoreAI { return try await captionCoreAI(image) }
+
         let encoderHiddenStates = try await encodeImage(image)
         let tokens = try await generateTokens(encoderHiddenStates: encoderHiddenStates)
         let vocabulary = try loadVocabulary()
@@ -51,7 +56,80 @@ actor FlorenceCaptioner {
     func unload() {
         encoderModel = nil
         decoderModel = nil
+        encoderFunction = nil
+        decoderFunction = nil
     }
+
+    // MARK: Core AI path
+    //
+    // Same algorithm as the Core ML path (encoder once, then a no-KV-cache
+    // greedy decode over the whole fixed-length buffer) so the runtime is the
+    // only variable. The `.aimodel`s are fp16 with float32/int32 boundaries.
+
+    /// Florence's fixed input side and decoder buffer length (see
+    /// trial_models/export_for_ios/export_florence_coreai.py).
+    private static let imageSide = 768
+    private static let maxCaptionTokens = 40
+
+    private func captionCoreAI(_ image: UIImage) async throws -> String {
+        let encoder = try await loadEncoderFunction()
+        let decoder = try await loadDecoderFunction()
+
+        let pixels = try ImagePreprocessor.makeRGBTensor(from: image, side: Self.imageSide, mode: .squash)
+        let hiddenStates: NDArray = try await MLPerfLog.measure("florence.encoder.inference") {
+            var outputs = try await encoder.run(inputs: ["pixel_values": pixels])
+            guard let value = outputs.remove("encoder_hidden_states"), let array = try await value.ndArray else {
+                throw FlorenceCaptionerError.missingOutput("encoder_hidden_states")
+            }
+            return array
+        }
+
+        let sequenceLength = Self.maxCaptionTokens
+        var decoderIds = [Int32](repeating: Int32(FlorenceVocabulary.padToken), count: sequenceLength)
+        decoderIds[0] = Int32(FlorenceVocabulary.endOfSequence) // decoder_start_token_id
+        var generated: [Int] = [FlorenceVocabulary.endOfSequence]
+
+        for _ in 0..<(sequenceLength - 1) {
+            try Task.checkCancellation()
+
+            let inputs: [String: NDArray] = [
+                "decoder_input_ids": NDArray(scalars: decoderIds, shape: [1, sequenceLength]),
+                "encoder_hidden_states": hiddenStates,
+            ]
+            let rowIndex = generated.count - 1
+            let nextToken: Int = try await MLPerfLog.measure("florence.decoder.step") {
+                var outputs = try await decoder.run(inputs: inputs)
+                guard let value = outputs.remove("logits"), let logits = try await value.ndArray else {
+                    throw FlorenceCaptionerError.missingOutput("logits")
+                }
+                return logits.argmaxOverLastAxis(rowIndex: rowIndex).token
+            }
+
+            generated.append(nextToken)
+            if nextToken == FlorenceVocabulary.endOfSequence { break }
+            decoderIds[generated.count - 1] = Int32(nextToken)
+        }
+
+        let caption = try loadVocabulary().decode(generated)
+        MLPerfLog.info("florence (Core AI) caption tokens=\(generated.count) text=\"\(caption)\"")
+        return caption
+    }
+
+    private func loadEncoderFunction() async throws -> InferenceFunction {
+        if let encoderFunction { return encoderFunction }
+        let function = try await CoreAIModelLoader.load("FlorenceEncoder")
+        encoderFunction = function
+        return function
+    }
+
+    private func loadDecoderFunction() async throws -> InferenceFunction {
+        if let decoderFunction { return decoderFunction }
+        let function = try await CoreAIModelLoader.load("FlorenceDecoderStep")
+        decoderFunction = function
+        return function
+    }
+
+    // MARK: Core ML path
 
     private func encodeImage(_ image: UIImage) async throws -> MLMultiArray {
         let encoder = try await loadEncoder()

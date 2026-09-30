@@ -11,6 +11,7 @@
 //  isolation — Core ML inference must not run on the main thread.
 //
 
+import CoreAI
 import CoreML
 import UIKit
 
@@ -27,13 +28,20 @@ actor CLIPEncoder {
     /// all three rows and row 0 is read back.
     private static let textBatchSize = 3
 
+    /// The Core AI image tower's fixed input side (CLIP ViT-B/32).
+    private static let imageSide = 224
+
     private var imageModel: MLModel?
     private var textModel: MLModel?
+    private var textFunction: InferenceFunction?
+    private var imageFunction: InferenceFunction?
     private var tokenizer: CLIPTokenizer?
 
     private init() {}
 
     func encodeImage(_ image: UIImage) async throws -> [Float] {
+        if OS27Models.useCoreAI { return try await encodeImageCoreAI(image) }
+
         let model = try await loadImageModel()
 
         guard let constraint = model.modelDescription.inputDescriptionsByName["pixel_values"]?.imageConstraint else {
@@ -60,6 +68,8 @@ actor CLIPEncoder {
     }
 
     func encodeText(_ text: String) async throws -> [Float] {
+        if OS27Models.useCoreAI { return try await encodeTextCoreAI(text) }
+
         let model = try await loadTextModel()
         var tokenizer = try loadTokenizer()
 
@@ -109,6 +119,8 @@ actor CLIPEncoder {
     func unload() {
         imageModel = nil
         textModel = nil
+        textFunction = nil
+        imageFunction = nil
     }
 
     private func loadImageModel() async throws -> MLModel {
@@ -123,6 +135,67 @@ actor CLIPEncoder {
         let model = try await CoreMLModelLoader.load("CLIPTextEncoder")
         textModel = model
         return model
+    }
+
+    /// Core AI image tower. Takes a float32 [1, 3, 224, 224] RGB tensor in
+    /// 0...255 (mean/std are baked into the `.aimodel`).
+    private func encodeImageCoreAI(_ image: UIImage) async throws -> [Float] {
+        let function = try await loadImageFunction()
+        let pixels = try ImagePreprocessor.makeRGBTensor(from: image, side: Self.imageSide, mode: .aspectFillCenterCrop)
+
+        let embedding: [Float] = try await MLPerfLog.measure("clip.image.inference") {
+            var outputs = try await function.run(inputs: ["pixel_values": pixels])
+            guard let value = outputs.remove("image_embeds"), let array = try await value.ndArray else {
+                throw CLIPEncoderError.missingOutput("image_embeds")
+            }
+            return array.toFloatArray()
+        }
+        MLPerfLog.info("clip.image (Core AI) embedding dim=\(embedding.count)")
+        return embedding
+    }
+
+    private func loadImageFunction() async throws -> InferenceFunction {
+        if let imageFunction { return imageFunction }
+        let function = try await CoreAIModelLoader.load("CLIPImageEncoder")
+        imageFunction = function
+        return function
+    }
+
+    /// Core AI text tower. The `.aimodel` was exported with batch 1 (the
+    /// Core ML one is frozen at 3), so no row tiling is needed.
+    private func encodeTextCoreAI(_ text: String) async throws -> [Float] {
+        let function = try await loadTextFunction()
+        var tokenizer = try loadTokenizer()
+
+        let encoded = MLPerfLog.measure("clip.text.tokenize") {
+            tokenizer.encode(text)
+        }
+        self.tokenizer = tokenizer
+
+        let shape = [1, CLIPTokenizer.sequenceLength]
+        let inputs: [String: NDArray] = [
+            "input_ids": NDArray(scalars: encoded.inputIds, shape: shape),
+            "attention_mask": NDArray(scalars: encoded.attentionMask, shape: shape),
+        ]
+
+        // `Outputs` is noncopyable, so it can't cross `measure`'s generic
+        // result; the embedding is read back inside the timed closure.
+        let embedding: [Float] = try await MLPerfLog.measure("clip.text.inference") {
+            var outputs = try await function.run(inputs: inputs)
+            guard let value = outputs.remove("text_embeds"), let array = try await value.ndArray else {
+                throw CLIPEncoderError.missingOutput("text_embeds")
+            }
+            return array.toFloatArray()
+        }
+        MLPerfLog.info("clip.text (Core AI) embedding dim=\(embedding.count)")
+        return embedding
+    }
+
+    private func loadTextFunction() async throws -> InferenceFunction {
+        if let textFunction { return textFunction }
+        let function = try await CoreAIModelLoader.load("CLIPTextEncoder")
+        textFunction = function
+        return function
     }
 
     private func loadTokenizer() throws -> CLIPTokenizer {

@@ -81,7 +81,7 @@ enum ImagePreprocessor {
     /// CVPixelBufferCreate zero-fills new buffers, so an aspect-fill draw
     /// that lands partly off-canvas leaves the rest correctly transparent;
     /// CGContext.draw clips to the context bounds automatically.
-    private static func drawRect(mode: ImagePreprocessMode, sourceSize: CGSize, targetSize: CGSize) -> CGRect {
+    static func drawRect(mode: ImagePreprocessMode, sourceSize: CGSize, targetSize: CGSize) -> CGRect {
         switch mode {
         case .squash:
             return CGRect(origin: .zero, size: targetSize)

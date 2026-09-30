@@ -11,6 +11,7 @@
 //  isolation — Core ML inference must not run on the main thread.
 //
 
+import CoreAI
 import CoreML
 import Foundation
 
@@ -29,6 +30,8 @@ actor CLAPEncoder {
 
     private var audioModel: MLModel?
     private var textModel: MLModel?
+    private var audioFunction: InferenceFunction?
+    private var textFunction: InferenceFunction?
     private var tokenizer: ClapTokenizer?
 
     private init() {}
@@ -38,6 +41,7 @@ actor CLAPEncoder {
             waveform.count == Self.waveformSampleCount,
             "waveform must be exactly \(Self.waveformSampleCount) samples (10.0s @ \(Self.sampleRate)Hz)"
         )
+        if OS27Models.useCoreAI { return try await encodeAudioCoreAI(waveform) }
         let model = try await loadAudioModel()
 
         let input = try MLDictionaryFeatureProvider(dictionary: [
@@ -59,6 +63,7 @@ actor CLAPEncoder {
     }
 
     func encodeText(_ text: String) async throws -> [Float] {
+        if OS27Models.useCoreAI { return try await encodeTextCoreAI(text) }
         let model = try await loadTextModel()
         var tokenizer = try loadTokenizer()
 
@@ -95,6 +100,63 @@ actor CLAPEncoder {
     func unload() {
         audioModel = nil
         textModel = nil
+        audioFunction = nil
+        textFunction = nil
+    }
+
+    private func encodeAudioCoreAI(_ waveform: [Float]) async throws -> [Float] {
+        let function = try await loadAudioFunction()
+        let input = NDArray(scalars: waveform, shape: [1, Self.waveformSampleCount])
+
+        let embedding: [Float] = try await MLPerfLog.measure("clap.audio.inference") {
+            var outputs = try await function.run(inputs: ["waveform": input])
+            guard let value = outputs.remove("audio_embeds"), let array = try await value.ndArray else {
+                throw CLAPEncoderError.missingOutput("audio_embeds")
+            }
+            return array.toFloatArray()
+        }
+        MLPerfLog.info("clap.audio (Core AI) embedding dim=\(embedding.count)")
+        return embedding
+    }
+
+    private func encodeTextCoreAI(_ text: String) async throws -> [Float] {
+        let function = try await loadTextFunction()
+        var tokenizer = try loadTokenizer()
+
+        let encoded = MLPerfLog.measure("clap.text.tokenize") {
+            tokenizer.encode(text)
+        }
+        self.tokenizer = tokenizer
+
+        let shape = [1, ClapTokenizer.sequenceLength]
+        let inputs: [String: NDArray] = [
+            "input_ids": NDArray(scalars: encoded.inputIds, shape: shape),
+            "attention_mask": NDArray(scalars: encoded.attentionMask, shape: shape),
+        ]
+
+        let embedding: [Float] = try await MLPerfLog.measure("clap.text.inference") {
+            var outputs = try await function.run(inputs: inputs)
+            guard let value = outputs.remove("text_embeds"), let array = try await value.ndArray else {
+                throw CLAPEncoderError.missingOutput("text_embeds")
+            }
+            return array.toFloatArray()
+        }
+        MLPerfLog.info("clap.text (Core AI) embedding dim=\(embedding.count)")
+        return embedding
+    }
+
+    private func loadAudioFunction() async throws -> InferenceFunction {
+        if let audioFunction { return audioFunction }
+        let function = try await CoreAIModelLoader.load("ClapAudioEncoder")
+        audioFunction = function
+        return function
+    }
+
+    private func loadTextFunction() async throws -> InferenceFunction {
+        if let textFunction { return textFunction }
+        let function = try await CoreAIModelLoader.load("ClapTextEncoder")
+        textFunction = function
+        return function
     }
 
     private func loadAudioModel() async throws -> MLModel {

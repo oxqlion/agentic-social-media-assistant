@@ -16,11 +16,21 @@
 //   - testWarmPipelinePerformance: launches once, then loops the flow via
 //     "Start Over" — steady-state, already-loaded performance.
 //
-//  Neither taps "Post" — the flow is measured up to ResultView only, so
-//  MemoryManager is never written to during a run (nothing to reset
-//  between iterations). It IS reset once at launch in test mode — see
-//  app_v1App.swift — so reads during the pipeline (preference-nudged
-//  ranking/captions) start from an identical, empty state every trial.
+//  Timing covers the flow up to ResultView only (`stopMeasuring()` once it
+//  appears). After that — outside the measured section — each trial reads
+//  what the pipeline produced (caption, hashtags, photos, music, preference
+//  memory; see CaseStudy/CaseStudyResultExport.swift in the app), taps
+//  "Post", reads the resulting preference memory, and attaches it all to
+//  the .xcresult as `case-study-output-<test>-trial-<n>.json`.
+//  case-study/scripts/extract_outputs.py copies those into
+//  case-study/results/<run>/.
+//
+//  Post writes MemoryManager, so in the warm test (one launch, many
+//  trials) preference memory accumulates trial to trial, and later trials'
+//  ranking/captions are nudged by earlier posts. The cold test relaunches
+//  every trial, and MemoryManager is reset at launch in test mode (see
+//  app_v1App.swift), so every cold trial starts from identical, empty
+//  memory; the warm test starts empty and then accumulates.
 //
 //  Per-stage timing comes from the app's existing MLPerfLog os_signpost
 //  instrumentation (ML/MLPerfLog.swift) via XCTOSSignpostMetric. The names
@@ -75,6 +85,11 @@ final class CaseStudyPerformanceTests: XCTestCase {
     private func launchIntoFixtureMode() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += ["-UseCaseStudyFixtures"]
+        // Core AI run: `TEST_RUNNER_OS27_USE_COREAI=1 xcodebuild test ...` (xcodebuild strips
+        // the TEST_RUNNER_ prefix). Default is the Core ML path, as in the baseline.
+        if ProcessInfo.processInfo.environment["OS27_USE_COREAI"] == "1" {
+            app.launchArguments += ["-os27UseCoreAI", "YES"]
+        }
         app.launch()
         return app
     }
@@ -105,6 +120,42 @@ final class CaseStudyPerformanceTests: XCTestCase {
         XCTAssertTrue(resultView.waitForExistence(timeout: 600), "Pipeline did not reach ResultView in time")
     }
 
+    private func jsonObject(from element: XCUIElement) -> Any? {
+        guard let text = element.value as? String, let data = text.data(using: .utf8) else { return nil }
+        return try? JSONSerialization.jsonObject(with: data)
+    }
+
+    /// Runs on ResultView, after `stopMeasuring()`: reads the pipeline's
+    /// outputs from the app's hidden export elements, taps Post, reads the
+    /// preference memory it produced, and attaches both as one JSON file.
+    private func captureOutputs(_ app: XCUIApplication, test: String, trial: Int, prompt: String) {
+        let resultElement = app.descendants(matching: .any)["caseStudyResultJSON"]
+        XCTAssertTrue(resultElement.waitForExistence(timeout: 180), "caseStudyResultJSON did not appear on ResultView")
+        let result = jsonObject(from: resultElement)
+        XCTAssertNotNil(result, "caseStudyResultJSON was not valid JSON")
+
+        app.buttons["postButton"].tap()
+        let postMemoryElement = app.descendants(matching: .any)["caseStudyPostMemoryJSON"]
+        XCTAssertTrue(postMemoryElement.waitForExistence(timeout: 30), "caseStudyPostMemoryJSON did not appear after Post")
+        let postMemory = jsonObject(from: postMemoryElement)
+
+        let output: [String: Any] = [
+            "test": test,
+            "trial": trial,
+            "prompt": prompt,
+            "result": result ?? NSNull(),
+            "memoryAfterPost": postMemory ?? NSNull(),
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: output, options: [.prettyPrinted, .sortedKeys]) else {
+            XCTFail("Could not serialize case-study output")
+            return
+        }
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "case-study-output-\(test)-trial-\(trial).json"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     private func wait(for element: XCUIElement, isEnabled: Bool, timeout: TimeInterval) {
         let predicate = NSPredicate(format: "isEnabled == %@", NSNumber(value: isEnabled))
         expectation(for: predicate, evaluatedWith: element)
@@ -119,7 +170,10 @@ final class CaseStudyPerformanceTests: XCTestCase {
         var promptIndex = 0
         measure(metrics: performanceMetrics()) {
             let app = launchIntoFixtureMode()
-            runOnePipelineFlow(app, prompt: prompts[promptIndex % prompts.count])
+            let prompt = prompts[promptIndex % prompts.count]
+            runOnePipelineFlow(app, prompt: prompt)
+            stopMeasuring()
+            captureOutputs(app, test: "cold", trial: promptIndex, prompt: prompt)
             promptIndex += 1
             app.terminate()
         }
@@ -135,7 +189,10 @@ final class CaseStudyPerformanceTests: XCTestCase {
 
         var promptIndex = 0
         measure(metrics: performanceMetrics()) {
-            runOnePipelineFlow(app, prompt: prompts[promptIndex % prompts.count])
+            let prompt = prompts[promptIndex % prompts.count]
+            runOnePipelineFlow(app, prompt: prompt)
+            stopMeasuring()
+            captureOutputs(app, test: "warm", trial: promptIndex, prompt: prompt)
             promptIndex += 1
             app.buttons["startOverButton"].tap()
         }
