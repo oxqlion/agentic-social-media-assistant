@@ -41,15 +41,18 @@ final class CaseStudyPerformanceTests: XCTestCase {
     /// call sites across the app for the full set instrumented today.
     private static let signpostStages: [String] = [
         "model.load",
-        "florence.encoder.inference",
-        "florence.decoder.step",
-        "clip.image.inference",
+        // Once-per-flow aggregates of the per-item stages (florence.*, clap.audio.*,
+        // clip.image.*, agent.image.describe). Those fire a variable number of times
+        // per flow, so XCTOSSignpostMetric silently dropped them; read the device log
+        // for their per-call numbers.
+        "index.captioning.total",
+        "index.clipEmbedding.total",
+        "index.clapEmbedding.total",
         "retrieval.textEmbed",
         "retrieval.rank",
         "agent.query.refine",
         "agent.caption.generate",
         "agent.hashtag.extract",
-        "clap.audio.inference",
         "agent.music.generate",
         "music.retrieval.textEmbed",
         "music.retrieval.rank",
@@ -59,7 +62,6 @@ final class CaseStudyPerformanceTests: XCTestCase {
         "highlight.novelty",
         // OS27 replacements (see OS27Models): Foundation Models Vision
         // describer and Music Understanding highlight detector.
-        "agent.image.describe",
         "highlight.musicunderstanding",
     ]
 

@@ -93,27 +93,30 @@ struct MusicIndexer {
         let cachedIDs = try await store.cachedPersistentIDs()
         let newURLs = urls.filter { !cachedIDs.contains(CaseStudyFixtures.persistentID(for: $0)) }
 
-        for (i, url) in newURLs.enumerated() {
-            try Task.checkCancellation()
-            let title = url.deletingPathExtension().lastPathComponent
-            do {
-                let window = try AudioWaveformLoader.loadWindow(from: url)
-                let embedding = try await encoder.encodeAudio(window.samples)
-                let file = try AVAudioFile(forReading: url)
-                let duration = Double(file.length) / file.processingFormat.sampleRate
-                let track = IndexedTrack(
-                    persistentID: CaseStudyFixtures.persistentID(for: url),
-                    embedding: embedding,
-                    title: title,
-                    artist: nil,
-                    duration: duration,
-                    analyzedRange: window.range
-                )
-                try await store.add(track)
-            } catch {
-                MLPerfLog.info("fixture music index failed for \(title): \(error)")
+        // Always fires once per flow, even when every track is cached.
+        try await MLPerfLog.measure("index.clapEmbedding.total") {
+            for (i, url) in newURLs.enumerated() {
+                try Task.checkCancellation()
+                let title = url.deletingPathExtension().lastPathComponent
+                do {
+                    let window = try AudioWaveformLoader.loadWindow(from: url)
+                    let embedding = try await encoder.encodeAudio(window.samples)
+                    let file = try AVAudioFile(forReading: url)
+                    let duration = Double(file.length) / file.processingFormat.sampleRate
+                    let track = IndexedTrack(
+                        persistentID: CaseStudyFixtures.persistentID(for: url),
+                        embedding: embedding,
+                        title: title,
+                        artist: nil,
+                        duration: duration,
+                        analyzedRange: window.range
+                    )
+                    try await store.add(track)
+                } catch {
+                    MLPerfLog.info("fixture music index failed for \(title): \(error)")
+                }
+                await onProgress(.encoding(completed: i + 1, total: newURLs.count))
             }
-            await onProgress(.encoding(completed: i + 1, total: newURLs.count))
         }
         await encoder.unload()
 
