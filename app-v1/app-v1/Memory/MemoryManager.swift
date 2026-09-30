@@ -287,6 +287,27 @@ final class MemoryManager {
         try? context.save()
     }
 
+    // MARK: - OS27 case study test-mode reset
+
+    /// Deletes every persisted memory row — all `PostInteraction`,
+    /// `DailyMemory`, and `UserPreferenceMemory` entries. Used only by the
+    /// case study's test-mode launch path (see `CaseStudyFixtures`) so
+    /// every controlled benchmark trial starts from identical, empty
+    /// memory; no normal app flow calls this.
+    func resetAll() {
+        let context = container.mainContext
+        for interaction in (try? context.fetch(FetchDescriptor<PostInteraction>())) ?? [] {
+            context.delete(interaction)
+        }
+        for daily in (try? context.fetch(FetchDescriptor<DailyMemory>())) ?? [] {
+            context.delete(daily)
+        }
+        for preference in (try? context.fetch(FetchDescriptor<UserPreferenceMemory>())) ?? [] {
+            context.delete(preference)
+        }
+        try? context.save()
+    }
+
     // MARK: - Cleanup
 
     /// Deletes PostInteraction/DailyMemory rows from any day other than

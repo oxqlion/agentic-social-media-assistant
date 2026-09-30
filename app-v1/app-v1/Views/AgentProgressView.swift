@@ -107,7 +107,8 @@ struct AgentProgressView: View {
             let hashtagContext = HashtagContext(
                 prompt: model.prompt,
                 observations: observations,
-                caption: model.generatedCaption
+                caption: model.generatedCaption,
+                images: model.selectedImages
             )
             model.hashtags = await HashtagAgent().run(for: hashtagContext).hashtags
             completedCount = 2
@@ -126,7 +127,11 @@ struct AgentProgressView: View {
             completedCount = 4
 
             do {
-                try await MusicIndexer().indexLibrary { _ in }
+                if CaseStudyFixtures.isEnabled {
+                    try await MusicIndexer().indexFixtures { _ in }
+                } else {
+                    try await MusicIndexer().indexLibrary { _ in }
+                }
                 let musicResult = try await MusicRecommenderAgent().run(
                     observations: observations,
                     caption: model.generatedCaption,
