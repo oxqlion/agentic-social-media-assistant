@@ -65,3 +65,6 @@ trial_models/audios/
 
 ## Secrets (copy app-v1/Secrets.example.swift here and fill in)
 app-v1/app-v1/Config/Secrets.swift
+
+## Claude Code local state
+.claude/

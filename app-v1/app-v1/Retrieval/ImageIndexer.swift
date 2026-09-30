@@ -45,32 +45,38 @@ struct ImageIndexer {
     @discardableResult
     func index(_ images: [UIImage], onProgress: @Sendable (Stage) async -> Void) async throws -> [IndexedImage] {
         var captions = [String?](repeating: nil, count: images.count)
-        for (i, image) in images.enumerated() {
-            try Task.checkCancellation()
-            if let describer {
-                captions[i] = await describer.describe(image)
-            } else {
-                do {
-                    captions[i] = try await captioner.caption(image)
-                } catch {
-                    MLPerfLog.info("florence caption failed for image \(i): \(error)")
+        // One interval per flow (not per photo): XCTOSSignpostMetric drops stages
+        // whose occurrence count varies, so per-call stages are aggregated here.
+        try await MLPerfLog.measure("index.captioning.total") {
+            for (i, image) in images.enumerated() {
+                try Task.checkCancellation()
+                if let describer {
+                    captions[i] = await describer.describe(image)
+                } else {
+                    do {
+                        captions[i] = try await captioner.caption(image)
+                    } catch {
+                        MLPerfLog.info("florence caption failed for image \(i): \(error)")
+                    }
                 }
+                await onProgress(.captioning(completed: i + 1, total: images.count))
             }
-            await onProgress(.captioning(completed: i + 1, total: images.count))
         }
         if describer == nil { await captioner.unload() }
 
         var indexedImages: [IndexedImage] = []
-        for (i, image) in images.enumerated() {
-            try Task.checkCancellation()
-            let embedding = try await encoder.encodeImage(image)
-            let id = UUID()
-            let indexed = IndexedImage(
-                id: id, embedding: embedding, caption: captions[i], thumbnailFilename: "\(id.uuidString).jpg"
-            )
-            try await store.add(indexed, thumbnail: image)
-            indexedImages.append(indexed)
-            await onProgress(.embedding(completed: i + 1, total: images.count))
+        try await MLPerfLog.measure("index.clipEmbedding.total") {
+            for (i, image) in images.enumerated() {
+                try Task.checkCancellation()
+                let embedding = try await encoder.encodeImage(image)
+                let id = UUID()
+                let indexed = IndexedImage(
+                    id: id, embedding: embedding, caption: captions[i], thumbnailFilename: "\(id.uuidString).jpg"
+                )
+                try await store.add(indexed, thumbnail: image)
+                indexedImages.append(indexed)
+                await onProgress(.embedding(completed: i + 1, total: images.count))
+            }
         }
         await encoder.unload()
         return indexedImages

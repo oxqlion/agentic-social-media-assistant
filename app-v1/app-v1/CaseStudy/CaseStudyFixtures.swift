@@ -39,8 +39,16 @@ enum CaseStudyFixtures {
 
     /// All bundled fixture photos, in a stable (filename) order.
     static func loadPhotos() -> [UIImage] {
-        urls(inSubdirectory: "photos", extensions: imageExtensions)
-            .compactMap { UIImage(contentsOfFile: $0.path) }
+        loadPhotoEntries().map(\.image)
+    }
+
+    /// Same photos as `loadPhotos()`, each paired with its source filename
+    /// so the case-study result export can say *which* fixture photos were
+    /// used/ranked (image UUIDs are regenerated every run).
+    static func loadPhotoEntries() -> [(filename: String, image: UIImage)] {
+        urls(inSubdirectory: "photos", extensions: imageExtensions).compactMap { url in
+            UIImage(contentsOfFile: url.path).map { (url.lastPathComponent, $0) }
+        }
     }
 
     /// All bundled fixture audio files, in a stable (filename) order.

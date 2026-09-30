@@ -20,6 +20,9 @@ final class AgentFlowModel {
     var prompt: String = ""
     var selectedPickerItems: [PhotosPickerItem] = []
     var selectedImages: [UIImage] = []
+    /// Case study fixture mode only: source filename of each entry in
+    /// `selectedImages` (same order), so the result export can name photos.
+    var selectedPhotoNames: [String] = []
 
     /// Query actually sent to CLIP, after the refinement agent runs.
     var refinedQuery: String = ""
@@ -57,6 +60,7 @@ final class AgentFlowModel {
         prompt = ""
         selectedPickerItems = []
         selectedImages = []
+        selectedPhotoNames = []
         refinedQuery = ""
         retrievalResults = []
         retrievalError = nil
